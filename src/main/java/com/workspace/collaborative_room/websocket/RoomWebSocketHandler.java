@@ -1,6 +1,7 @@
 package com.workspace.collaborative_room.websocket;
 
 import com.workspace.collaborative_room.model.RoomEvent;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -15,6 +16,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RoomWebSocketHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    // Nayi dependency inject karo
+    private final StringRedisTemplate redisTemplate;
+
+    public RoomWebSocketHandler(StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     // Room ID -> us room mein connected sabhi users ke WebSockets ka Set
     private final ConcurrentHashMap<String, Set<WebSocketSession>> roomSessions = new ConcurrentHashMap<>();
@@ -34,20 +42,14 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         RoomEvent event = objectMapper.readValue(payload, RoomEvent.class);
         String roomId = event.getRoomId();
 
-        System.out.println("Room: " + roomId + " | Event: " + event.getType() + " | Client: " + event.getClientId());
-
-        // 1. Agar user pehli baar message bhej raha hai, toh use room mein add karo
+        // Connection track karo
         roomSessions.putIfAbsent(roomId, ConcurrentHashMap.newKeySet());
         roomSessions.get(roomId).add(session);
         sessionToRoomMap.put(session.getId(), roomId);
 
-        // 2. Room ke sabhi active users ko message broadcast karo (Khud ko chhod kar)
-        Set<WebSocketSession> clientsInRoom = roomSessions.get(roomId);
-        for (WebSocketSession client : clientsInRoom) {
-            if (client.isOpen() && !client.getId().equals(session.getId())) {
-                client.sendMessage(new TextMessage(payload));
-            }
-        }
+        // DIRECT BROADCAST KI JAGAHA REDIS PAR PUBLISH KARO
+        System.out.println("Redis 'room-events' channel par message publish kar rahe hain...");
+        redisTemplate.convertAndSend("room-events", payload);
     }
 
     @Override
@@ -61,6 +63,18 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
             if (roomSessions.get(roomId).isEmpty()) {
                 roomSessions.remove(roomId);
                 System.out.println("Room " + roomId + " empty ho gaya aur memory se clear kar diya.");
+            }
+        }
+    }
+
+    // Yeh naya method add karo jise RedisSubscriber call karega
+    public void broadcastLocally(String roomId, String payload) throws Exception {
+        Set<WebSocketSession> clientsInRoom = roomSessions.get(roomId);
+        if (clientsInRoom != null) {
+            for (WebSocketSession client : clientsInRoom) {
+                if (client.isOpen()) {
+                    client.sendMessage(new TextMessage(payload));
+                }
             }
         }
     }

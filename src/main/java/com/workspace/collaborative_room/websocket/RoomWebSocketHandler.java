@@ -1,50 +1,67 @@
 package com.workspace.collaborative_room.websocket;
 
-
 import com.workspace.collaborative_room.model.RoomEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
-import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-import org.w3c.dom.Text;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class RoomWebSocketHandler extends TextWebSocketHandler {
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // In-memory store for Phase 1: Track active sessions
-    private final ConcurrentHashMap<String, WebSocketSession> activeSessions =
-            new ConcurrentHashMap<>();
+    // Room ID -> us room mein connected sabhi users ke WebSockets ka Set
+    private final ConcurrentHashMap<String, Set<WebSocketSession>> roomSessions = new ConcurrentHashMap<>();
+
+    // Session ID -> Room ID mapping (disconnect handle karne ke liye)
+    private final ConcurrentHashMap<String, String> sessionToRoomMap = new ConcurrentHashMap<>();
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception{
-        // Jab naya client connect hoga
-        activeSessions.put(session.getId(), session);
-        System.out.println("Connected to " + session.getId());
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        System.out.println("Naya connection open hua: " + session.getId());
+        // Abhi user kis room mein hai yeh nahi pata, wo pehle message se pata chalega.
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception{
-        // Client se aane wala JSON message yahan aayega
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-
-        // JSON string ko Java object (RoomEvent) mein convert kar rahe hain
         RoomEvent event = objectMapper.readValue(payload, RoomEvent.class);
-        System.out.println("Message aaya Room: " + event.getRoomId() + " se. Event Type: " + event.getType());
+        String roomId = event.getRoomId();
 
-        // V1 Logic: Server event ko validate aur broadcast karega[cite: 1].
-        // TODO Abhi ke liye hum sirf receive kar rahe hain. Aage hum isey Redis aur same room ke baaki clients ko bhejenge.
+        System.out.println("Room: " + roomId + " | Event: " + event.getType() + " | Client: " + event.getClientId());
+
+        // 1. Agar user pehli baar message bhej raha hai, toh use room mein add karo
+        roomSessions.putIfAbsent(roomId, ConcurrentHashMap.newKeySet());
+        roomSessions.get(roomId).add(session);
+        sessionToRoomMap.put(session.getId(), roomId);
+
+        // 2. Room ke sabhi active users ko message broadcast karo (Khud ko chhod kar)
+        Set<WebSocketSession> clientsInRoom = roomSessions.get(roomId);
+        for (WebSocketSession client : clientsInRoom) {
+            if (client.isOpen() && !client.getId().equals(session.getId())) {
+                client.sendMessage(new TextMessage(payload));
+            }
+        }
     }
 
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception{
-        // Jab client disconnect ho jaye (Network issue ya tab close)
-        activeSessions.remove(session.getId());
-        System.out.println("Disconnected from " + session.getId());
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        String roomId = sessionToRoomMap.remove(session.getId());
+        if (roomId != null && roomSessions.containsKey(roomId)) {
+            roomSessions.get(roomId).remove(session);
+            System.out.println("Client " + session.getId() + " room " + roomId + " se leave kar gaya.");
+
+            // Memory leak bachane ke liye: Agar room khali ho gaya toh map se hata do
+            if (roomSessions.get(roomId).isEmpty()) {
+                roomSessions.remove(roomId);
+                System.out.println("Room " + roomId + " empty ho gaya aur memory se clear kar diya.");
+            }
+        }
     }
 }

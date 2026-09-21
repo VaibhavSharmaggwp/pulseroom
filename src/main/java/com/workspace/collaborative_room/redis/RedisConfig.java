@@ -8,6 +8,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 public class RedisConfig {
@@ -20,7 +21,9 @@ public class RedisConfig {
     // Yeh Listener Adapter banata hai jo hamare custom 'onMessage' method ko call karega
     @Bean
     public MessageListenerAdapter listenerAdapter(RedisSubscriber subscriber){
-        return new MessageListenerAdapter(subscriber, "onMessage");
+        MessageListenerAdapter adapter = new MessageListenerAdapter(subscriber, "onMessage");
+        adapter.setSerializer(new StringRedisSerializer());
+        return adapter;
     }
 
     // Yeh container Redis channel "room-events" ko lagatar listen karta rahega

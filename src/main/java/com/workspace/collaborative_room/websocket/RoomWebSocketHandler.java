@@ -46,6 +46,14 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         String roomId = event.getRoomId();
         String eventType = event.getType();
 
+        // Update: Redis Check! Agar room exist nahi karta toh aage mat badho
+        String redisKey = "room:" + roomId;
+        if(Boolean.FALSE.equals(redisTemplate.hasKey(redisKey))){
+            System.err.println("Illegal Entry Room expire ho chuka hai ya galat hai: " + roomId);
+            session.close(new CloseStatus(4004, "Room Expired or Invalid"));
+            return;
+        }
+
         if (roomId == null) {
             System.err.println("Event received without roomId: " + payload);
             return;

@@ -45,6 +45,12 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         RoomEvent event = objectMapper.readValue(payload, RoomEvent.class);
         String roomId = event.getRoomId();
         String eventType = event.getType();
+        String eventId = event.getEventId();
+
+        if (roomId == null) {
+            System.err.println("Event received without roomId: " + payload);
+            return;
+        }
 
         // Update: Redis Check! Agar room exist nahi karta toh aage mat badho
         String redisKey = "room:" + roomId;
@@ -54,23 +60,35 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        if (roomId == null) {
-            System.err.println("Event received without roomId: " + payload);
+        // 2. Idempotency Check (Duplicate Prevention)[cite: 1]
+        String duplicateCheckKey = "event:" + eventId;
+        // 5 minute tak Redis is eventId ko yaad rakhega. Agar wapas aaya toh drop kar dega.
+        Boolean isNewEvent = redisTemplate.opsForValue().setIfAbsent(duplicateCheckKey, "PROCESSED", 5, java.util.concurrent.TimeUnit.MINUTES);
+        if(Boolean.FALSE.equals(isNewEvent)){
+            System.out.println("Duplicate event pakda gaya! EventId: " + eventId);
             return;
         }
 
-        // Connection track karo
+        // 3. Server Sequencing (serverSeq assign karna)[cite: 1]
+        String seqKey = "room_seq:" + roomId;
+        Long newSeq = redisTemplate.opsForValue().increment(seqKey); // redis automatically + 1 kardega
+        event.setServerSeq(newSeq);
+
+        // Ab hamara object modify ho chuka hai, toh isko wapas JSON string mein convert karenge
+        String updatedPayload = objectMapper.writeValueAsString(event);
+
+        // Connection tracking
         roomSessions.putIfAbsent(roomId, ConcurrentHashMap.newKeySet());
         roomSessions.get(roomId).add(session);
         sessionToRoomMap.put(session.getId(), roomId);
 
         // Raasta 1: Live Broadcast (Redis par publish karo taaki sabhi instances aur clients ko mil sake)
         System.out.println("Redis 'room-events' channel par message publish kar rahe hain...");
-        redisTemplate.convertAndSend("room-events", payload);
+        redisTemplate.convertAndSend("room-events", updatedPayload);
 
         // Raasta 2: Durable Backup (Agar event drawing wala hai, toh usko disk pe save karne ke liye Kafka mein buffer karo)
         if ("DRAW_START".equals(eventType) || "DRAW_POINTS".equals(eventType) || "DRAW_END".equals(eventType)) {
-            kafkaProducer.sendDrawingEvent(roomId, payload);
+            kafkaProducer.sendDrawingEvent(roomId, updatedPayload);
         }
     }
 

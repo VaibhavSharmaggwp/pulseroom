@@ -1,5 +1,12 @@
 # PulseRoom 🚀
 
+![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
+
 > **Production-grade real-time collaborative workspace supporting live concurrent notes, presence tracking, and high-frequency whiteboard streaming. Built with Spring Boot WebSockets, featuring monotonic server sequencing, event idempotency, PostgreSQL snapshot recovery, and distributed horizontal scale-out powered by Redis Pub/Sub and Kafka.**
 
 ---
@@ -147,6 +154,18 @@ The server will boot on `http://localhost:8080`.
    }
    ```
 5. Check your Spring Boot terminal console for confirmation of the parsed event.
+
+---
+
+## 🗺️ Roadmap & Upcoming Milestones
+
+- [x] Full-duplex WebSocket communication backbone (`ws://localhost:8080/ws`)
+- [x] Redis Pub/Sub cross-instance event synchronization
+- [x] Monotonic server sequencing & event idempotency
+- [x] PostgreSQL durable state snapshots and room recovery
+- [ ] Operational Transformation (OT) / CRDT support for rich-text conflicts
+- [ ] End-to-end room encryption for private workspaces
+- [ ] Whiteboard canvas export (PNG/SVG) and replay timeline
 
 ---
 

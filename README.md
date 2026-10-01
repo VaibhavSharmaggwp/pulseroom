@@ -84,6 +84,21 @@ PulseRoom is designed to scale from a single-node Spring Boot service to a multi
 
 ---
 
+## 📂 Repository Structure
+
+```text
+pulseroom/
+├── backend/            # Spring Boot WebSocket, Redis & Kafka backend
+│   ├── src/            # Java application source and resources
+│   ├── docker-compose.yml
+│   ├── mvnw / mvnw.cmd
+│   └── pom.xml
+└── ui/                 # PulseRoom client application (Coming soon)
+    └── .gitkeep
+```
+
+---
+
 ## 🛠️ Tech Stack
 
 - **Backend**: Java 21, Spring Boot (Web, WebSocket, Data JPA)
@@ -102,8 +117,9 @@ PulseRoom is designed to scale from a single-node Spring Boot service to a multi
 - Docker (for optional Redis & Kafka services)
 
 ### 2. Environment Setup
-Copy the example configuration:
+Navigate to the backend directory and copy the example configuration:
 ```bash
+cd backend
 cp .env.example .env
 ```
 Ensure your database named `room` exists:
@@ -111,7 +127,7 @@ Ensure your database named `room` exists:
 CREATE DATABASE room;
 ```
 
-Configure your credentials in `src/main/resources/application.properties` or set them via environment variables:
+Configure your credentials in `backend/src/main/resources/application.properties` or set them via environment variables:
 ```bash
 export DB_URL="jdbc:postgresql://localhost:5432/room"
 export DB_USERNAME="postgres"
@@ -120,11 +136,13 @@ export DB_PASSWORD="your_database_password"
 
 ### 3. Spin Up Infrastructure (Redis & Kafka)
 ```bash
+cd backend
 docker compose up -d
 ```
 
 ### 4. Run the Backend
 ```bash
+cd backend
 ./mvnw spring-boot:run
 ```
 The server will boot on `http://localhost:8080`.

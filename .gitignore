@@ -37,3 +37,13 @@ build/
 *.local
 *.log
 
+### Android & Gradle ###
+.gradle/
+**/build/
+local.properties
+.cxx/
+.externalNativeBuild/
+.kotlin/
+*.jks
+*.keystore
+

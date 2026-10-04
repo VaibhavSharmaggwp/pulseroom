@@ -26,6 +26,7 @@ import com.workspace.pulseroom.ui.main.viewmodels.RoomsViewModel
 
 @Composable
 fun RoomsScreen(
+    modifier: Modifier = Modifier,
     viewModel: RoomsViewModel = viewModel() // Compose automatically ViewModel inject kar dega
 ) {
     val roomList by viewModel.rooms.collectAsState()
@@ -33,8 +34,9 @@ fun RoomsScreen(
     RoomsScreenContent(
         roomList = roomList,
         onRoomClick = { roomId ->
-            println("User wants to join room: $roomId")
-        }
+            viewModel.joinRoom(roomId)
+        },
+        modifier = modifier
     )
 }
 

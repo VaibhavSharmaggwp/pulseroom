@@ -16,7 +16,8 @@ class MainActivity : ComponentActivity() {
 
     enableEdgeToEdge()
     setContent {
-      PulseRoomTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+      PulseRoomTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background)
+      { MainNavigation() } }
     }
   }
 }

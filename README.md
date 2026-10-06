@@ -2,6 +2,8 @@
 
 ![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-4285F4?style=for-the-badge&logo=android&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white)
@@ -16,11 +18,11 @@
 PulseRoom is designed to scale from a single-node Spring Boot service to a multi-instance distributed cluster:
 
 ```
-                  ┌───────────────────────────────┐
-                  │    Browser Clients (React)    │
-                  └───────────────┬───────────────┘
-                                  │  WebSocket (WSS) / REST
-                                  ▼
+                  ┌──────────────────────────────────────────────┐
+                  │    Clients (Android Jetpack Compose & Web)   │
+                  └──────────────────────┬───────────────────────┘
+                                         │  WebSocket (WSS) / REST
+                                         ▼
                      ┌─────────────────────────┐
                      │   Spring Boot Backend   │
                      │  (WebSocket + Handlers) │
@@ -93,8 +95,10 @@ pulseroom/
 │   ├── docker-compose.yml
 │   ├── mvnw / mvnw.cmd
 │   └── pom.xml
-└── ui/                 # PulseRoom client application (Coming soon)
-    └── .gitkeep
+└── ui/                 # PulseRoom Android client (Jetpack Compose)
+    ├── app/            # Android UI application source (Compose UI, ViewModels, WebSocket)
+    ├── gradlew / gradlew.bat
+    └── build.gradle.kts
 ```
 
 ---
@@ -102,6 +106,7 @@ pulseroom/
 ## 🛠️ Tech Stack
 
 - **Backend**: Java 21, Spring Boot (Web, WebSocket, Data JPA)
+- **Client (Android)**: Kotlin, Jetpack Compose, Material 3, OkHttp WebSocket, StateFlow & Coroutines
 - **Database**: PostgreSQL (Room metadata, user identity, document snapshots)
 - **Caching & Pub/Sub**: Redis 7
 - **Event Streaming**: Apache Kafka (KRaft mode)
@@ -147,6 +152,14 @@ cd backend
 ```
 The server will boot on `http://localhost:8080`.
 
+### 5. Run the Android Client
+Navigate to the UI directory and build/install the debug application:
+```bash
+cd ui
+./gradlew installDebug
+```
+Alternatively, open the `ui` module in Android Studio and run it on an emulator or connected device. For Android emulators, point the client to `ws://10.0.2.2:8080/ws`.
+
 ---
 
 ## 🧪 Testing with Postman
@@ -181,6 +194,7 @@ The server will boot on `http://localhost:8080`.
 - [x] Redis Pub/Sub cross-instance event synchronization
 - [x] Monotonic server sequencing & event idempotency
 - [x] PostgreSQL durable state snapshots and room recovery
+- [x] Android client application with Jetpack Compose & live WebSocket integration
 - [ ] Operational Transformation (OT) / CRDT support for rich-text conflicts
 - [ ] End-to-end room encryption for private workspaces
 - [ ] Whiteboard canvas export (PNG/SVG) and replay timeline

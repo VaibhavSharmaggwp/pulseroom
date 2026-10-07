@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import com.workspace.pulseroom.theme.PulseRoomTheme
+import com.workspace.pulseroom.ui.main.components.DraggableStickyNote
 import com.workspace.pulseroom.ui.main.components.RoomHeader
 import com.workspace.pulseroom.ui.main.components.WorkspaceGridBackground
 
@@ -17,10 +20,25 @@ fun LiveRoomScreen(
     // The Box is our Z-axis container. The first item is at the bottom.
     Box(modifier = Modifier.fillMaxSize()) {
 
+        val marigoldNote = Color(0xFFFFCC66)
+        val peachNote = Color(0xFFFFDAB9)
         // Layer 0 & Layer 1: Grid Background and Canvas Content
         WorkspaceGridBackground {
-            // NOTE: Next, we will build the Draggable Sticky Notes and Canvas Engine here.
-            // For now, it is an empty dotted board.
+            DraggableStickyNote(
+                title = "Ship checklist", //[cite: 15]
+                body = "7 of 9 done. Store copy + press embargo left.", //[cite: 15]
+                author = "Lena", //[cite: 15]
+                initialPosition = Offset(x = 100f, y = 200f), // Screen mein X: 100, Y: 200 par girega
+                noteColor = marigoldNote
+            )
+            // Drop note 2
+            DraggableStickyNote(
+                title = "Pricing FAQ", //[cite: 15]
+                body = "Who owns the annual-plan answer?", //[cite: 15]
+                author = "Marco", //[cite: 15]
+                initialPosition = Offset(x = 500f, y = 150f), // Thoda right side mein
+                noteColor = Color.White
+            )
         }
 
         // Layer 3: HUD (Heads-Up Display) overlaying the canvas

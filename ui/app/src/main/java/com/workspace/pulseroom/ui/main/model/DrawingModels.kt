@@ -8,4 +8,13 @@ data class Stroke(
     val points: List<Offset>,
     val color: Color,
     val strokeWidth: Float
-    )
+)
+
+data class StickyNoteModel(
+    val id: String,
+    val title: String,
+    val body: String,
+    val author: String,
+    val position: Offset,
+    val color: Color
+)

@@ -2,6 +2,7 @@ package com.workspace.pulseroom.ui.main.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -9,6 +10,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import com.workspace.pulseroom.theme.PulseRoomTheme
+import com.workspace.pulseroom.ui.main.components.BottomActionBar
 import com.workspace.pulseroom.ui.main.components.DraggableStickyNote
 import com.workspace.pulseroom.ui.main.components.RoomHeader
 import com.workspace.pulseroom.ui.main.components.WorkspaceGridBackground
@@ -25,24 +27,24 @@ fun LiveRoomScreen(
         // Layer 0 & Layer 1: Grid Background and Canvas Content
         WorkspaceGridBackground {
             DraggableStickyNote(
-                title = "Ship checklist", //[cite: 15]
-                body = "7 of 9 done. Store copy + press embargo left.", //[cite: 15]
-                author = "Lena", //[cite: 15]
-                initialPosition = Offset(x = 100f, y = 200f), // Screen mein X: 100, Y: 200 par girega
+                title = "Ship checklist",
+                body = "7 of 9 done. Store copy + press embargo left.",
+                author = "Lena",
+                initialPosition = Offset(x = 100f, y = 200f),
                 noteColor = marigoldNote
             )
             // Drop note 2
             DraggableStickyNote(
-                title = "Pricing FAQ", //[cite: 15]
-                body = "Who owns the annual-plan answer?", //[cite: 15]
-                author = "Marco", //[cite: 15]
-                initialPosition = Offset(x = 500f, y = 150f), // Thoda right side mein
+                title = "Pricing FAQ",
+                body = "Who owns the annual-plan answer?",
+                author = "Marco",
+                initialPosition = Offset(x = 500f, y = 150f),
                 noteColor = Color.White
             )
         }
 
         // Layer 3: HUD (Heads-Up Display) overlaying the canvas
-        // Aligning to the TopCenter ensures it stays fixed while the canvas underneath pans
+        // Top Header
         Box(modifier = Modifier.align(Alignment.TopCenter)) {
             RoomHeader(
                 roomTitle = "Q4 launch war room",
@@ -52,7 +54,22 @@ fun LiveRoomScreen(
             )
         }
 
-        // We will add the Bottom Sheet (People 24, Chat 3, Raise hand) here aligned to Alignment.BottomCenter
+        // Layer 4: Bottom Action Bar anchored at the bottom
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            BottomActionBar(
+                onAddNoteClick = {
+                    println("Note add karne ka UI trigger hua!")
+                },
+                onRaiseHandClick = {
+                    println("Raise hand trigger hua!")
+                }
+            )
+        }
     }
 }
 

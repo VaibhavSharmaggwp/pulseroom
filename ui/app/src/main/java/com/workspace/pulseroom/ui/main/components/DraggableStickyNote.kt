@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +23,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -42,6 +44,7 @@ import kotlin.math.roundToInt
 fun DraggableStickyNote(
     note: StickyNoteModel,
     modifier: Modifier = Modifier,
+    onTextChanged: (String) -> Unit = {},
     onPositionChanged: (Offset) -> Unit = {}
 ) {
     val textEspresso = Color(0xFF101917)
@@ -88,11 +91,18 @@ fun DraggableStickyNote(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        Text(
-            text = note.body,
-            color = textEspresso.copy(alpha = 0.8f),
-            fontSize = 14.sp,
-            lineHeight = 20.sp
+        // BasicTextField for editing body text
+        BasicTextField(
+            value = note.body,
+            onValueChange = { newText ->
+                onTextChanged(newText)  // Parent screen ko updated text bhej do
+            },
+            textStyle = TextStyle(
+                color = textEspresso.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            ),
+            modifier = Modifier.width(150.dp) // Text field ko thodi boundary dena zaroori hai
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -117,6 +127,7 @@ private fun DraggableStickyNotePreview() {
             author = "Priya R.",
             position = Offset(40f, 40f),
             color = Color(0xFFFEF3C7)
-        )
+        ),
+        onTextChanged = {}
     )
 }

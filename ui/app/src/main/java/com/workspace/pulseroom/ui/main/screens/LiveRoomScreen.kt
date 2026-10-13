@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,10 +18,12 @@ import androidx.compose.ui.unit.dp
 import com.workspace.pulseroom.theme.PulseRoomTheme
 import com.workspace.pulseroom.ui.main.components.BottomActionBar
 import com.workspace.pulseroom.ui.main.components.DraggableStickyNote
+import com.workspace.pulseroom.ui.main.components.FancyToast
 import com.workspace.pulseroom.ui.main.components.RoomHeader
 import com.workspace.pulseroom.ui.main.components.WorkspaceGridBackground
 import com.workspace.pulseroom.ui.main.model.StickyNoteModel
 import java.util.UUID
+import kotlinx.coroutines.delay
 
 /**
  * LiveRoomScreen:
@@ -41,6 +44,17 @@ fun LiveRoomScreen(
         mutableStateOf(emptyList<StickyNoteModel>())
     }
 
+    // Fancy Toast state
+    var toastMessage by remember { mutableStateOf<String?>(null) }
+
+    // Toast auto-dismiss timer (2.5 seconds)
+    LaunchedEffect(toastMessage) {
+        if (toastMessage != null) {
+            delay(2500)
+            toastMessage = null
+        }
+    }
+
     // Naye notes ke liye pastel peach color
     val peachNoteColor = Color(0xFFFFDAB9)
 
@@ -54,6 +68,11 @@ fun LiveRoomScreen(
             notesList.forEach { note ->
                 DraggableStickyNote(
                     note = note,
+                    onTextChanged = { newText ->
+                        notesList = notesList.map {
+                            if (it.id == note.id) it.copy(body = newText) else it
+                        }
+                    },
                     onPositionChanged = { newPos ->
                         // Pure dotted canvas par note freely drag hoga aur nayi position state me save hogi
                         notesList = notesList.map {
@@ -77,6 +96,20 @@ fun LiveRoomScreen(
         }
 
         // ==========================================
+        // LAYER 2.5: Fancy Toast Notification HUD
+        // ==========================================
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 76.dp)
+        ) {
+            FancyToast(
+                message = toastMessage,
+                onDismiss = { toastMessage = null }
+            )
+        }
+
+        // ==========================================
         // LAYER 3 (BOTTOM): Compact Floating Action Bar HUD
         // ==========================================
         // Bottom center me thoda padding dekar float karega taaki navigation bar se chipke nahi
@@ -88,18 +121,23 @@ fun LiveRoomScreen(
         ) {
             BottomActionBar(
                 onAddNoteClick = {
-                    // JAB USER "Add note" CLICK KAREGA:
-                    // 1. Naya note create karo screen ke center ke paas (X: 250, Y: 400)
-                    val newNote = StickyNoteModel(
-                        id = UUID.randomUUID().toString(),
-                        title = "New Idea",
-                        body = "Tap to edit text...",
-                        author = "Vaibhav",
-                        position = Offset(250f, 400f),
-                        color = peachNoteColor
-                    )
-                    // 2. List me naya note add ho jayega aur canvas par pop up ho kar freely draggable ban jayega!
-                    notesList = notesList + newNote
+                    // Safety feature: Max 20 notes Spam Protection
+                    if (notesList.size >= 20) {
+                        toastMessage = "Max 20 notes allowed per screen!"
+                    } else {
+                        // JAB USER "Add note" CLICK KAREGA:
+                        // 1. Naya note create karo screen ke center ke paas (X: 250, Y: 400)
+                        val newNote = StickyNoteModel(
+                            id = UUID.randomUUID().toString(),
+                            title = "", // Empty title taaki focus direct body par ho
+                            body = "Tap to edit text...",
+                            author = "Vaibhav",
+                            position = Offset(250f, 400f),
+                            color = peachNoteColor
+                        )
+                        // 2. List me naya note add ho jayega aur canvas par pop up ho kar freely draggable ban jayega!
+                        notesList = notesList + newNote
+                    }
                 },
                 onRaiseHandClick = {
                     println("Raise hand trigger hua!")

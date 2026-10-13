@@ -45,7 +45,8 @@ fun DraggableStickyNote(
     note: StickyNoteModel,
     modifier: Modifier = Modifier,
     onTextChanged: (String) -> Unit = {},
-    onPositionChanged: (Offset) -> Unit = {}
+    onPositionChanged: (Offset) -> Unit = {}, // Har pixel move ke liye (Real-time UI / Redis)
+    onDragEnd: (Offset) -> Unit = {}          // Ungli uthne par (Database Save)
 ) {
     val textEspresso = Color(0xFF101917)
 
@@ -58,6 +59,7 @@ fun DraggableStickyNote(
     }
 
     val currentOnPositionChanged by rememberUpdatedState(onPositionChanged)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
 
     Column(
         modifier = modifier
@@ -66,15 +68,22 @@ fun DraggableStickyNote(
 
             // 2. SMOOTH DRAG GESTURE: Canvas par note ko freely drag karne ke liye
             .pointerInput(note.id) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    val newPosition = Offset(
-                        x = currentOffset.x + dragAmount.x,
-                        y = currentOffset.y + dragAmount.y
-                    )
-                    currentOffset = newPosition
-                    currentOnPositionChanged(newPosition)
-                }
+                // Yahan hum drag ke alag alag phases handle kar rahe
+                detectDragGestures(
+                    onDragEnd = {
+                        // User ne ungli utha li hai, final position DB ke liye bhej do
+                        currentOnDragEnd(currentOffset)
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        val newPosition = Offset(
+                            x = currentOffset.x + dragAmount.x,
+                            y = currentOffset.y + dragAmount.y
+                        )
+                        currentOffset = newPosition
+                        currentOnPositionChanged(newPosition)
+                    }
+                )
             }
             .shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp))
             .background(color = note.color, shape = RoundedCornerShape(12.dp))
@@ -127,7 +136,6 @@ private fun DraggableStickyNotePreview() {
             author = "Priya R.",
             position = Offset(40f, 40f),
             color = Color(0xFFFEF3C7)
-        ),
-        onTextChanged = {}
+        )
     )
 }

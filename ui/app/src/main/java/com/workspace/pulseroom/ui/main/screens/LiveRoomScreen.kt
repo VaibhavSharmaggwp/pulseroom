@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.workspace.pulseroom.theme.PulseRoomTheme
 import com.workspace.pulseroom.ui.main.components.BottomActionBar
 import com.workspace.pulseroom.ui.main.components.DraggableStickyNote
@@ -22,6 +23,7 @@ import com.workspace.pulseroom.ui.main.components.FancyToast
 import com.workspace.pulseroom.ui.main.components.RoomHeader
 import com.workspace.pulseroom.ui.main.components.WorkspaceGridBackground
 import com.workspace.pulseroom.ui.main.model.StickyNoteModel
+import com.workspace.pulseroom.ui.main.viewmodels.RoomsViewModel
 import java.util.UUID
 import kotlinx.coroutines.delay
 
@@ -36,7 +38,8 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun LiveRoomScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    viewModel: RoomsViewModel = viewModel()
 ) {
     // 1. DYNAMIC STATE FOR NOTES:
     // Shuruat me list bilkul EMPTY rehti hai. Koi pre-existing note nahi hoga.
@@ -46,6 +49,11 @@ fun LiveRoomScreen(
 
     // Fancy Toast state
     var toastMessage by remember { mutableStateOf<String?>(null) }
+
+    // Auto-connect to WebSocket room
+    LaunchedEffect(Unit) {
+        viewModel.joinRoom("room_3")
+    }
 
     // Toast auto-dismiss timer (2.5 seconds)
     LaunchedEffect(toastMessage) {
@@ -68,15 +76,27 @@ fun LiveRoomScreen(
             notesList.forEach { note ->
                 DraggableStickyNote(
                     note = note,
+                    onPositionChanged = { newPos ->
+                        // 1. UI update
+                        notesList = notesList.map { 
+                            if (it.id == note.id) it.copy(position = newPos) else it 
+                        }
+                        
+                        // 2. Redis ko realtime position bhejo (bina DB save kiye)
+                        viewModel.sendNoteEvent("NOTE_DRAGGING", note.copy(position = newPos))
+                    },
+                    onDragEnd = { finalPos ->
+                        // 3. Drag khatam, ab DB mein save karo!
+                        viewModel.sendNoteEvent("NOTE_DROPPED", note.copy(position = finalPos))
+                    },
                     onTextChanged = { newText ->
                         notesList = notesList.map {
                             if (it.id == note.id) it.copy(body = newText) else it
                         }
-                    },
-                    onPositionChanged = { newPos ->
-                        // Pure dotted canvas par note freely drag hoga aur nayi position state me save hogi
-                        notesList = notesList.map {
-                            if (it.id == note.id) it.copy(position = newPos) else it
+                        // 4. Text edit hua, DB update karo
+                        val updatedNote = notesList.find { it.id == note.id }
+                        if (updatedNote != null) {
+                            viewModel.sendNoteEvent("NOTE_EDITED", updatedNote)
                         }
                     }
                 )
@@ -126,17 +146,20 @@ fun LiveRoomScreen(
                         toastMessage = "Max 20 notes allowed per screen!"
                     } else {
                         // JAB USER "Add note" CLICK KAREGA:
-                        // 1. Naya note create karo screen ke center ke paas (X: 250, Y: 400)
+                        // 1. Naya note create karo screen ke center ke paas (X: 300, Y: 400)
                         val newNote = StickyNoteModel(
                             id = UUID.randomUUID().toString(),
                             title = "", // Empty title taaki focus direct body par ho
-                            body = "Tap to edit text...",
+                            body = "Type here...",
                             author = "Vaibhav",
-                            position = Offset(250f, 400f),
+                            position = Offset(300f, 400f),
                             color = peachNoteColor
                         )
                         // 2. List me naya note add ho jayega aur canvas par pop up ho kar freely draggable ban jayega!
                         notesList = notesList + newNote
+
+                        // Naya note bante hi DB mein save karwao
+                        viewModel.sendNoteEvent("NOTE_ADDED", newNote)
                     }
                 },
                 onRaiseHandClick = {

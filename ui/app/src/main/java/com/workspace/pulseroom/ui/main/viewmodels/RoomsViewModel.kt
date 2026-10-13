@@ -3,10 +3,12 @@ package com.workspace.pulseroom.ui.main.viewmodels
 import androidx.lifecycle.ViewModel
 import com.workspace.pulseroom.ui.main.model.RoomEvent
 import com.workspace.pulseroom.ui.main.model.RoomInfo
+import com.workspace.pulseroom.ui.main.model.StickyNoteModel
 import com.workspace.pulseroom.ui.main.network.WorkspaceWebSocketClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.UUID
 
 
 class RoomsViewModel: ViewModel(){
@@ -58,6 +60,33 @@ class RoomsViewModel: ViewModel(){
             clientId = "android_user_01",
             payload = payload
         )
+        webSocketClient?.sendMessage(event)
+
+    }
+
+    fun sendNoteEvent(eventType: String, note: StickyNoteModel, roomId: String = "room_3") {
+        // 1. Note ke data ko Map (JSON payload) mein convert karo
+        val payload = mapOf(
+            "id" to note.id,
+            "title" to note.title,
+            "body" to note.body,
+            "author" to note.author,
+            "positionX" to note.position.x.toDouble(), // Backend Double expect kar raha hai
+            "positionY" to note.position.y.toDouble(),
+            // Color object ko Hex String mein convert karna taaki database samajh sake
+            "colorHex" to String.format("#%06X", (0xFFFFFF and note.color.value.toInt()))
+        )
+
+        // 2. RoomEvent event class banao
+        val event = RoomEvent(
+            eventId = UUID.randomUUID().toString(),
+            type = eventType, // Yahan "NOTE_DRAGGING", "NOTE_DROPPED", ya "NOTE_ADDED" aayega
+            roomId = roomId,
+            clientId = "android_user_01", // Humara hardcoded user
+            payload = payload
+        )
+
+        // Websocket ke through event send karo
         webSocketClient?.sendMessage(event)
 
     }

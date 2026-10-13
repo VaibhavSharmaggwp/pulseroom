@@ -2,6 +2,7 @@ package com.workspace.collaborative_room.websocket;
 
 import com.workspace.collaborative_room.kafka.KafkaEventProducer;
 import com.workspace.collaborative_room.model.RoomEvent;
+import com.workspace.collaborative_room.service.NoteService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -23,9 +24,13 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     private final StringRedisTemplate redisTemplate;
     private final ConcurrentHashMap<String, String> sessionToClientMap = new ConcurrentHashMap<>();
 
-    public RoomWebSocketHandler(StringRedisTemplate redisTemplate, KafkaEventProducer kafkaProducer) {
+    private final NoteService noteService;
+
+    public RoomWebSocketHandler(StringRedisTemplate redisTemplate, KafkaEventProducer kafkaProducer, NoteService noteService) {
         this.redisTemplate = redisTemplate;
         this.kafkaProducer = kafkaProducer;
+        this.noteService = noteService;
+
     }
 
     // Room ID -> us room mein connected sabhi users ke WebSockets ka Set
@@ -44,6 +49,30 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
         RoomEvent event = objectMapper.readValue(payload, RoomEvent.class);
+
+        // 1. Traffic Controller Logic
+        switch (event.getType()){
+            case "NOTE_ADDED":
+            case "NOTE_DROPPED":
+            case "NOTE_EDITED":
+                // Ungli uth gayi ya note update hua -> Database mein save karo!
+                noteService.processNoteEvent(event);
+
+                // Save hone ke baad baaki users ko broadcast kar do
+                // redisPublisher.publish("room-events", payload);
+                break;
+
+
+            case "NOTE_DRAGGING":
+            case "USER_JOINED":
+            case "MIC_MUTED":
+                // Inko DB mein save nahi karna hai, direct Redis pe fek do real-time UI ke liye
+                // redisPublisher.publish("room-events", payload);
+                break;
+            default:
+                System.out.println("Unknown event type: " + event.getType());
+        }
+
         String roomId = event.getRoomId();
         String eventType = event.getType();
         String eventId = event.getEventId();

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
+import androidx.compose.ui.graphics.toArgb
 
 
 class RoomsViewModel: ViewModel(){
@@ -74,7 +75,7 @@ class RoomsViewModel: ViewModel(){
             "positionX" to note.position.x.toDouble(), // Backend Double expect kar raha hai
             "positionY" to note.position.y.toDouble(),
             // Color object ko Hex String mein convert karna taaki database samajh sake
-            "colorHex" to String.format("#%06X", (0xFFFFFF and note.color.value.toInt()))
+            "colorHex" to String.format("#%06X", (0xFFFFFF and note.color.toArgb()))
         )
 
         // 2. RoomEvent event class banao

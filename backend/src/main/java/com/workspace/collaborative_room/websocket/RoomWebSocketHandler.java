@@ -13,10 +13,10 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class RoomWebSocketHandler extends TextWebSocketHandler {
-
 
     // New dependencies for split of Kafka and Redis
     private final KafkaEventProducer kafkaProducer;
@@ -30,7 +30,6 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         this.redisTemplate = redisTemplate;
         this.kafkaProducer = kafkaProducer;
         this.noteService = noteService;
-
     }
 
     // Room ID -> us room mein connected sabhi users ke WebSockets ka Set
@@ -42,36 +41,12 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         System.out.println("Naya connection open hua: " + session.getId());
-        // Abhi user kis room mein hai yeh nahi pata, wo pehle message se pata chalega.
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
         RoomEvent event = objectMapper.readValue(payload, RoomEvent.class);
-
-        // 1. Traffic Controller Logic
-        switch (event.getType()){
-            case "NOTE_ADDED":
-            case "NOTE_DROPPED":
-            case "NOTE_EDITED":
-                // Ungli uth gayi ya note update hua -> Database mein save karo!
-                noteService.processNoteEvent(event);
-
-                // Save hone ke baad baaki users ko broadcast kar do
-                // redisPublisher.publish("room-events", payload);
-                break;
-
-
-            case "NOTE_DRAGGING":
-            case "USER_JOINED":
-            case "MIC_MUTED":
-                // Inko DB mein save nahi karna hai, direct Redis pe fek do real-time UI ke liye
-                // redisPublisher.publish("room-events", payload);
-                break;
-            default:
-                System.out.println("Unknown event type: " + event.getType());
-        }
 
         String roomId = event.getRoomId();
         String eventType = event.getType();
@@ -83,20 +58,24 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // Update: Redis Check! Agar room exist nahi karta toh aage mat badho
+        // 1. STEP 1: Room Validation Check (Database save se PEHLE aayega)
         String redisKey = "room:" + roomId;
-        if(Boolean.FALSE.equals(redisTemplate.hasKey(redisKey))){
-            System.err.println("Illegal Entry Room expire ho chuka hai ya galat hai: " + roomId);
-            session.close(new CloseStatus(4004, "Room Expired or Invalid"));
-            return;
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(redisKey))) {
+            if (isDefaultOrTestRoom(roomId)) {
+                // Development / Test rooms ko auto-activate karo 12 ghante ke liye
+                redisTemplate.opsForValue().set(redisKey, "ACTIVE", 12, TimeUnit.HOURS);
+                System.out.println("Default/Test room auto-activated in Redis: " + roomId);
+            } else {
+                System.err.println("Illegal Entry Room expire ho chuka hai ya galat hai: " + roomId);
+                session.close(new CloseStatus(4004, "Room Expired or Invalid"));
+                return;
+            }
         }
 
-        // 1. Presence Event: USER_JOINED Check
-        // Agar yeh session pehli baar kisi room mein baat kar raha hai, toh iska matlab user abhi join hua hai
-        if(!sessionToRoomMap.containsKey(session.getId())){
+        // 2. Presence Event: USER_JOINED Check
+        if (!sessionToRoomMap.containsKey(session.getId())) {
             sessionToRoomMap.put(session.getId(), roomId);
             sessionToClientMap.put(session.getId(), clientId); // this to remember which client came which left
-
 
             roomSessions.putIfAbsent(roomId, ConcurrentHashMap.newKeySet());
             roomSessions.get(roomId).add(session);
@@ -111,24 +90,39 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
 
             System.out.println(clientId + " room " + roomId + " mein aaya. USER_JOINED broadcast kar rahe hain.");
             redisTemplate.convertAndSend("room-events", objectMapper.writeValueAsString(joinEvent));
-
         }
 
-        // 2. Idempotency Check (Duplicate Prevention)[cite: 1]
+        // 3. Idempotency Check (Duplicate Prevention)
         String duplicateCheckKey = "event:" + eventId;
-        // 5 minute tak Redis is eventId ko yaad rakhega. Agar wapas aaya toh drop kar dega.
-        Boolean isNewEvent = redisTemplate.opsForValue().setIfAbsent(duplicateCheckKey, "PROCESSED", 5, java.util.concurrent.TimeUnit.MINUTES);
-        if(Boolean.FALSE.equals(isNewEvent)){
+        Boolean isNewEvent = redisTemplate.opsForValue().setIfAbsent(duplicateCheckKey, "PROCESSED", 5, TimeUnit.MINUTES);
+        if (Boolean.FALSE.equals(isNewEvent)) {
             System.out.println("Duplicate event pakda gaya! EventId: " + eventId);
             return;
         }
 
-        // 3. Server Sequencing (serverSeq assign karna)[cite: 1]
+        // 4. Traffic Controller Logic (Validation ke baad secure tarike se process karo)
+        switch (event.getType()) {
+            case "NOTE_ADDED":
+            case "NOTE_DROPPED":
+            case "NOTE_EDITED":
+                // Ungli uth gayi ya note update hua -> Database mein save karo!
+                noteService.processNoteEvent(event);
+                break;
+
+            case "NOTE_DRAGGING":
+            case "USER_JOINED":
+            case "MIC_MUTED":
+                // Inko DB mein save nahi karna hai, direct Redis pe fek do real-time UI ke liye
+                break;
+            default:
+                System.out.println("Unknown event type: " + event.getType());
+        }
+
+        // 5. Server Sequencing (serverSeq assign karna)
         String seqKey = "room_seq:" + roomId;
         Long newSeq = redisTemplate.opsForValue().increment(seqKey); // redis automatically + 1 kardega
         event.setServerSeq(newSeq);
 
-        // Ab hamara object modify ho chuka hai, toh isko wapas JSON string mein convert karenge
         String updatedPayload = objectMapper.writeValueAsString(event);
 
         // Connection tracking
@@ -144,6 +138,14 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         if ("DRAW_START".equals(eventType) || "DRAW_POINTS".equals(eventType) || "DRAW_END".equals(eventType)) {
             kafkaProducer.sendDrawingEvent(roomId, updatedPayload);
         }
+    }
+
+    private boolean isDefaultOrTestRoom(String roomId) {
+        if (roomId == null) return false;
+        return "room_3".equalsIgnoreCase(roomId)
+                || "room_2".equalsIgnoreCase(roomId)
+                || "D0429C".equalsIgnoreCase(roomId)
+                || roomId.toLowerCase().startsWith("room_");
     }
 
     @Override
@@ -166,13 +168,12 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            // Presence Event: USER_LEFT Broadcast karo[cite: 1]
+            // Presence Event: USER_LEFT Broadcast karo
             RoomEvent leftEvent = new RoomEvent();
             leftEvent.setEventId(java.util.UUID.randomUUID().toString());
-            leftEvent.setType("USER_LEFT"); // PRD Requirement[cite: 1]
+            leftEvent.setType("USER_LEFT");
             leftEvent.setRoomId(roomId);
             leftEvent.setClientId(clientId);
-            // Sequence lagao taaki clients isko bhi properly order kar sakein
             leftEvent.setServerSeq(redisTemplate.opsForValue().increment("room_seq:" + roomId));
 
             System.out.println(clientId + " ka connection toot gaya. USER_LEFT broadcast kar rahe hain.");

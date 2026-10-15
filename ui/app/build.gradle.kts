@@ -78,6 +78,9 @@ dependencies {
     // Adaptive UI ke liye
     implementation("androidx.compose.material3:material3-window-size-class:1.2.1")
 
+    // Navigation ke liye
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests

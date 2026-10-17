@@ -39,19 +39,26 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun LiveRoomScreen(
+    roomId: String = "room_3",
     onBackClick: () -> Unit = {},
     viewModel: RoomsViewModel = viewModel()
 ) {
     // 1. DYNAMIC STATE FOR NOTES:
     // Ab yeh ViewModel ke StateFlow se automatically sync rehti hai!
     val notesList by viewModel.notes.collectAsState()
+    val roomsList by viewModel.rooms.collectAsState()
+
+    // Dynamic title & participant count
+    val activeRoom = roomsList.find { it.id.equals(roomId, ignoreCase = true) }
+    val displayTitle = activeRoom?.name ?: "Room #$roomId"
+    val participantCount = activeRoom?.participants ?: 1
 
     // Fancy Toast state
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
-    // Auto-connect to WebSocket room
-    LaunchedEffect(Unit) {
-        viewModel.joinRoom("room_3")
+    // Auto-connect to WebSocket room dynamically
+    LaunchedEffect(roomId) {
+        viewModel.joinRoom(roomId)
     }
 
     // Toast auto-dismiss timer (2.5 seconds)
@@ -96,8 +103,8 @@ fun LiveRoomScreen(
         // ==========================================
         Box(modifier = Modifier.align(Alignment.TopCenter)) {
             RoomHeader(
-                roomTitle = "Q4 launch war room",
-                participantCount = 24,
+                roomTitle = displayTitle,
+                participantCount = participantCount,
                 timerText = "38:12",
                 onBackClick = onBackClick
             )

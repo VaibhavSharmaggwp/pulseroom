@@ -47,6 +47,12 @@ class RoomsViewModel : ViewModel() {
 
     // Yeh function UI tab call karegi jab user room join karega
     fun joinRoom(roomCode: String) {
+        if (webSocketClient != null && activeRoomId == roomCode) {
+            println("ViewModel: Already connected to room $roomCode.")
+            return
+        }
+        webSocketClient?.disconnect()
+        _notes.value = emptyList()
         activeRoomId = roomCode
         println("ViewModel: Connecting to WebSocket for room $roomCode...")
 
@@ -63,6 +69,14 @@ class RoomsViewModel : ViewModel() {
             }
         )
         webSocketClient?.connect(roomCode)
+    }
+
+    // Room se bahar aane par connection clean karo aur notes reset karo
+    fun leaveRoom() {
+        println("ViewModel: Leaving room $activeRoomId...")
+        webSocketClient?.disconnect()
+        webSocketClient = null
+        _notes.value = emptyList()
     }
 
     /**

@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.workspace.pulseroom.theme.PlusJakartaSans
 import com.workspace.pulseroom.theme.PulseRoomTheme
+import com.workspace.pulseroom.ui.main.components.CreateRoomDialog
 import com.workspace.pulseroom.ui.main.components.WorkspaceGridBackground
 
 @Composable
@@ -63,6 +64,7 @@ fun DashboardScreen(
     onCreateRoom: () -> Unit = {}
 ) {
     var roomCode by remember { mutableStateOf("") }
+    var showCreateDialog by remember { mutableStateOf(false) }
 
     // PulseRoom Design Tokens
     val ember500 = Color(0xFFFF5722)
@@ -316,7 +318,7 @@ fun DashboardScreen(
 
                     // Section 2: Create New Room Button (Vibrant Ember Gradient)
                     Button(
-                        onClick = onCreateRoom,
+                        onClick = { showCreateDialog = true },
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
@@ -375,6 +377,21 @@ fun DashboardScreen(
                 color = Color(0xFFA8A29E),
                 fontFamily = PlusJakartaSans,
                 modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
+        if (showCreateDialog) {
+            CreateRoomDialog(
+                onDismiss = { showCreateDialog = false },
+                onCreateClick = { roomName, maxMembers, password ->
+                    showCreateDialog = false
+
+                    // Abhi ke liye hum UI testing ke liye same route trigger kar rahe hain.
+                    // Agle step mein hum yeh data Spring Boot ko bhejenge via REST API, 
+                    // aur wahan se jo actual 'roomId' aayega, uspar navigate karenge!
+                    val tempCode = (1000..9999).random().toString()
+                    onCreateRoom() // Ye pehle wala callback use kar lo for testing
+                }
             )
         }
     }

@@ -103,9 +103,10 @@ fun LiveRoomScreen(
         // ==========================================
         Box(modifier = Modifier.align(Alignment.TopCenter)) {
             RoomHeader(
-                roomTitle = displayTitle,
-                participantCount = participantCount,
-                timerText = "38:12",
+                // ViewModel se dynamically room ID nikalo
+                roomTitle = "Room Code: ${viewModel.currentRoomId}",
+                participantCount = 1, // Baad mein isko bhi dynamic karenge
+                timerText = "Live",
                 onBackClick = onBackClick
             )
         }

@@ -1,24 +1,53 @@
 package com.workspace.pulseroom.ui.main.viewmodels
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
 import com.workspace.pulseroom.ui.main.model.RoomEvent
 import com.workspace.pulseroom.ui.main.model.RoomInfo
 import com.workspace.pulseroom.ui.main.model.StickyNoteModel
+import com.workspace.pulseroom.ui.main.network.NetworkConfig
 import com.workspace.pulseroom.ui.main.network.WorkspaceWebSocketClient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class RoomsViewModel : ViewModel() {
+
+    var isLoading by mutableStateOf(false)
+        private set
+
+    var errorMessage by mutableStateOf<String?>(null)
+        private set
+
+    // Dynamic observable Room ID for UI header
+    var currentRoomId by mutableStateOf("room_3")
+        private set
+
     // Current client ID (jo humne har event me use kiya hai)
     val currentClientId: String = "android_user_01"
 
     // Active room tracker
-    private var activeRoomId: String = "room_3"
+    var activeRoomId: String
+        get() = currentRoomId
+        set(value) {
+            currentRoomId = value
+        }
 
     // MutableStateFlow (Private): Sirf ViewModel isme data change kar sakta hai
     private val _rooms = MutableStateFlow<List<RoomInfo>>(emptyList())
@@ -224,6 +253,86 @@ class RoomsViewModel : ViewModel() {
         )
 
         webSocketClient?.sendMessage(event)
+    }
+    // API call karne ka function
+    fun createRoomOnServer(
+        roomName: String,
+        maxMembers: Int = 6,
+        password: String = "",
+        onError: ((String) -> Unit)? = null,
+        onSuccess: (String) -> Unit
+    ) {
+        isLoading = true
+        errorMessage = null
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val jsonMap = mapOf(
+                    "roomName" to roomName,
+                    "maxMembers" to maxMembers,
+                    "password" to password,
+                    "adminId" to currentClientId
+                )
+
+                val jsonString = Gson().toJson(jsonMap)
+                val requestBody = jsonString.toRequestBody("application/json".toMediaType())
+
+                // Dynamic URL: Uses 10.0.2.2 for Android Emulator, 10.0.3.2 for Genymotion, or LAN IP for physical device
+                val url = NetworkConfig.createRoomUrl
+                println("ViewModel: Creating room at URL: $url")
+
+                val request = Request.Builder()
+                    .url(url)
+                    .post(requestBody)
+                    .build()
+
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS)
+                    .writeTimeout(10, TimeUnit.SECONDS)
+                    .build()
+
+                val response = client.newCall(request).execute()
+
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string()
+                    val responseMap = Gson().fromJson(responseBody, Map::class.java)
+                    val newRoomId = responseMap["roomId"]?.toString() ?: ""
+
+                    if (newRoomId.isNotBlank()) {
+                        withContext(Dispatchers.Main) {
+                            isLoading = false
+                            activeRoomId = newRoomId
+                            joinRoom(newRoomId)
+                            onSuccess(newRoomId) // UI ko batao ki room ban gaya aur navigate karo
+                        }
+                    } else {
+                        val errMsg = "Server returned empty roomId"
+                        withContext(Dispatchers.Main) {
+                            isLoading = false
+                            errorMessage = errMsg
+                            onError?.invoke(errMsg)
+                        }
+                    }
+                } else {
+                    val errMsg = "Server error: ${response.code}"
+                    println("ViewModel: $errMsg")
+                    withContext(Dispatchers.Main) {
+                        isLoading = false
+                        errorMessage = errMsg
+                        onError?.invoke(errMsg)
+                    }
+                }
+            } catch (e: Exception) {
+                val errMsg = "Network failure: ${e.localizedMessage ?: e.message}"
+                println("ViewModel: $errMsg")
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    errorMessage = errMsg
+                    onError?.invoke(errMsg)
+                }
+            }
+        }
     }
 
     override fun onCleared() {

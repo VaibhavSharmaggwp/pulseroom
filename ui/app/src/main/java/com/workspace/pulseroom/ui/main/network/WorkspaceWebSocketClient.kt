@@ -22,25 +22,9 @@ class WorkspaceWebSocketClient(
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
 
-    private fun isEmulator(): Boolean {
-        return (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
-                || Build.FINGERPRINT.startsWith("generic")
-                || Build.FINGERPRINT.startsWith("unknown")
-                || Build.HARDWARE.contains("goldfish")
-                || Build.HARDWARE.contains("ranchu")
-                || Build.MODEL.contains("google_sdk")
-                || Build.MODEL.contains("Emulator")
-                || Build.MODEL.contains("Android SDK built for x86")
-                || Build.MANUFACTURER.contains("Genymotion")
-                || Build.PRODUCT.contains("sdk_google")
-                || Build.PRODUCT.contains("google_sdk")
-    }
-
     fun connect(roomCode: String){
-        // Emulator uses 10.0.2.2. Physical phone on LAN uses host IP 192.168.1.17
-        val host = if (isEmulator()) "10.0.2.2" else "192.168.1.17"
-        val wsUrl = "ws://$host:8080/ws"
-        Log.d("WebSocket", "Connecting to $wsUrl for room: $roomCode")
+        val wsUrl = NetworkConfig.wsUrl
+        Log.d("WebSocket", "Connecting to $wsUrl for room: $roomCode (host: ${NetworkConfig.serverHost})")
 
         val request = Request.Builder()
             .url(wsUrl)

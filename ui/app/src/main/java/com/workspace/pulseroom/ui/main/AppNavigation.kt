@@ -20,6 +20,7 @@ fun AppNavigation(viewModel: RoomsViewModel) {
         // Route 1: Dashboard
         composable("dashboard") {
             DashboardScreen(
+                viewModel = viewModel,
                 onJoinRoom = { code ->
                     // Jab user code dale, usko live_room ke url par bhej do
                     navController.navigate("live_room/$code")

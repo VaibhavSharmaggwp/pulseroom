@@ -53,15 +53,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.workspace.pulseroom.R
 import com.workspace.pulseroom.theme.PlusJakartaSans
 import com.workspace.pulseroom.theme.PulseRoomTheme
 import com.workspace.pulseroom.ui.main.components.CreateRoomDialog
 import com.workspace.pulseroom.ui.main.components.WorkspaceGridBackground
+import com.workspace.pulseroom.ui.main.viewmodels.RoomsViewModel
 
 @Composable
 fun DashboardScreen(
     onJoinRoom: (String) -> Unit = {},
-    onCreateRoom: () -> Unit = {}
+    onCreateRoom: () -> Unit = {},
+    viewModel: RoomsViewModel = viewModel()
 ) {
     var roomCode by remember { mutableStateOf("") }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -380,17 +389,36 @@ fun DashboardScreen(
             )
         }
 
-        if (showCreateDialog) {
+        if (viewModel.isLoading) {
+            // 1. Lottie Animation Overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.6f)), // Dim background
+                contentAlignment = Alignment.Center
+            ) {
+                val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.loading_anim))
+                val progress by animateLottieCompositionAsState(
+                    composition,
+                    iterations = LottieConstants.IterateForever // Infinite loop
+                )
+                LottieAnimation(
+                    composition = composition,
+                    progress = { progress },
+                    modifier = Modifier.size(200.dp)
+                )
+            }
+        } else if (showCreateDialog) {
             CreateRoomDialog(
                 onDismiss = { showCreateDialog = false },
                 onCreateClick = { roomName, maxMembers, password ->
                     showCreateDialog = false
 
-                    // Abhi ke liye hum UI testing ke liye same route trigger kar rahe hain.
-                    // Agle step mein hum yeh data Spring Boot ko bhejenge via REST API, 
-                    // aur wahan se jo actual 'roomId' aayega, uspar navigate karenge!
-                    val tempCode = (1000..9999).random().toString()
-                    onCreateRoom() // Ye pehle wala callback use kar lo for testing
+                    // 2. ViewModel ka naya network function call karo
+                    viewModel.createRoomOnServer(roomName, maxMembers, password) { generatedRoomCode ->
+                        // Server se response aate hi navigate karo
+                        onJoinRoom(generatedRoomCode)
+                    }
                 }
             )
         }

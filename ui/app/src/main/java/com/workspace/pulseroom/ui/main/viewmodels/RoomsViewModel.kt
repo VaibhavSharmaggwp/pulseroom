@@ -62,8 +62,15 @@ class RoomsViewModel : ViewModel() {
     private val _lastRecievedEvent = MutableStateFlow<RoomEvent?>(null)
     val lastRecievedEvent: StateFlow<RoomEvent?> = _lastRecievedEvent.asStateFlow()
 
-    // OKHTTP engine
+    // OKHTTP engine for WebSocket
     private var webSocketClient: WorkspaceWebSocketClient? = null
+
+    // OkHttpClient instance for REST API calls
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .build()
 
     init {
         // V1 Test: Hardcoded data UI test karne ke liye.
@@ -254,6 +261,7 @@ class RoomsViewModel : ViewModel() {
 
         webSocketClient?.sendMessage(event)
     }
+
     // API call karne ka function
     fun createRoomOnServer(
         roomName: String,
@@ -277,7 +285,6 @@ class RoomsViewModel : ViewModel() {
                 val jsonString = Gson().toJson(jsonMap)
                 val requestBody = jsonString.toRequestBody("application/json".toMediaType())
 
-                // Dynamic URL: Uses 10.0.2.2 for Android Emulator, 10.0.3.2 for Genymotion, or LAN IP for physical device
                 val url = NetworkConfig.createRoomUrl
                 println("ViewModel: Creating room at URL: $url")
 
@@ -286,13 +293,7 @@ class RoomsViewModel : ViewModel() {
                     .post(requestBody)
                     .build()
 
-                val client = OkHttpClient.Builder()
-                    .connectTimeout(10, TimeUnit.SECONDS)
-                    .readTimeout(10, TimeUnit.SECONDS)
-                    .writeTimeout(10, TimeUnit.SECONDS)
-                    .build()
-
-                val response = client.newCall(request).execute()
+                val response = httpClient.newCall(request).execute()
 
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string()
@@ -330,6 +331,67 @@ class RoomsViewModel : ViewModel() {
                     isLoading = false
                     errorMessage = errMsg
                     onError?.invoke(errMsg)
+                }
+            }
+        }
+    }
+
+    fun joinRoomOnServer(
+        roomId: String,
+        password: String = "",
+        onResult: (Boolean, String) -> Unit
+    ) {
+        isLoading = true
+        errorMessage = null
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val jsonMap = mapOf(
+                    "roomId" to roomId,
+                    "password" to password
+                )
+
+                val jsonString = Gson().toJson(jsonMap)
+                val requestBody = jsonString.toRequestBody("application/json".toMediaType())
+
+                val url = NetworkConfig.joinRoomUrl
+                println("ViewModel: Joining room at URL: $url for roomId: $roomId")
+
+                val request = Request.Builder()
+                    .url(url)
+                    .post(requestBody)
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                val responseBody = response.body?.string().orEmpty()
+
+                val responseMap = try {
+                    Gson().fromJson(responseBody, Map::class.java)
+                } catch (_: Exception) {
+                    null
+                }
+
+                val isSuccess = response.isSuccessful && (responseMap?.get("success") as? Boolean ?: false)
+                val message = responseMap?.get("message") as? String
+                    ?: if (response.isSuccessful) "Joined successfully" else "Server error: ${response.code}"
+
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    if (isSuccess) {
+                        activeRoomId = roomId
+                        joinRoom(roomId)
+                    } else {
+                        errorMessage = message
+                    }
+                    onResult(isSuccess, message)
+                }
+            } catch (e: Exception) {
+                val errMsg = "Network error: ${e.localizedMessage ?: e.message}"
+                println("ViewModel: $errMsg")
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    errorMessage = errMsg
+                    onResult(false, errMsg)
                 }
             }
         }

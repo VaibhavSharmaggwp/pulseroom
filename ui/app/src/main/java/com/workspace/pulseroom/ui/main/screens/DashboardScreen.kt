@@ -1,5 +1,8 @@
 package com.workspace.pulseroom.ui.main.screens
 
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -74,6 +77,7 @@ fun DashboardScreen(
 ) {
     var roomCode by remember { mutableStateOf("") }
     var showCreateDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // PulseRoom Design Tokens
     val ember500 = Color(0xFFFF5722)
@@ -251,7 +255,16 @@ fun DashboardScreen(
                         ),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                if (roomCode.isNotBlank()) onJoinRoom(roomCode)
+                                val trimmedCode = roomCode.trim()
+                                if (trimmedCode.isNotBlank()) {
+                                    viewModel.joinRoomOnServer(trimmedCode, "") { success, message ->
+                                        if (success) {
+                                            onJoinRoom(trimmedCode)
+                                        } else {
+                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
                             }
                         ),
                         modifier = Modifier.fillMaxWidth()
@@ -262,7 +275,16 @@ fun DashboardScreen(
                     // Join Button
                     Button(
                         onClick = {
-                            if (roomCode.isNotBlank()) onJoinRoom(roomCode)
+                            val trimmedCode = roomCode.trim()
+                            if (trimmedCode.isNotBlank()) {
+                                viewModel.joinRoomOnServer(trimmedCode, "") { success, message ->
+                                    if (success) {
+                                        onJoinRoom(trimmedCode)
+                                    } else {
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
                         },
                         enabled = roomCode.isNotBlank(),
                         shape = RoundedCornerShape(14.dp),

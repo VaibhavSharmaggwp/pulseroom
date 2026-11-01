@@ -1,6 +1,7 @@
 package com.workspace.collaborative_room.entity;
 
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -22,4 +23,8 @@ public class RoomMetadataEntity {
     private String adminId; // the host of the room
     private int MaxMembers;  // Default 6, ya jo user ne slider par set kiya
     private String hashedPassword;
+
+    //  New variable current capacity track krne ke liye
+    @Column(columnDefinition = "int default 0")
+    private int activeMembers;
 }

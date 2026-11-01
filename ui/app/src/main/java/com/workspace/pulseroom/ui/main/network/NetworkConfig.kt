@@ -54,6 +54,9 @@ object NetworkConfig {
     val createRoomUrl: String
         get() = "$httpBaseUrl/api/rooms/create"
 
+    val joinRoomUrl: String
+        get() = "$httpBaseUrl/api/rooms/join"
+
     val wsUrl: String
         get() = "ws://$serverHost:$PORT/ws"
 }

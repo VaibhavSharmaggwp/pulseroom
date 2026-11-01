@@ -55,7 +55,7 @@ public class RoomController {
 
         // 3. Entity banao aur Database mein save karo
         RoomMetadataEntity newRoom = new RoomMetadataEntity(
-                roomCode, roomName, adminId, maxMembers, hashedPassword
+                roomCode, roomName, adminId, maxMembers, hashedPassword, 0
         );
         roomRepository.save(newRoom);
 
@@ -127,5 +127,54 @@ public class RoomController {
             code = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
         } while (roomRepository.existsById(code));
         return code;
+    }
+
+    // Yeh 3 strict checks karega: Room Exists -> Password Match -> Capacity Limit.
+    @PostMapping("/join")
+    public ResponseEntity<?> joinRoom(@RequestBody Map<String, Object> requestData){
+        String roomId = (String) requestData.get("roomId");
+        if (roomId == null || roomId.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Room ID is required."
+            ));
+        }
+        String rawPassword = (String) requestData.getOrDefault("password", "");
+
+        // Check 1: Room exist karta hai ya nahi?
+        var roomOpt = roomRepository.findById(roomId);
+        if(roomOpt.isEmpty()){
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "message", "Room not found. Check the code."
+            ));
+        }
+        RoomMetadataEntity room = roomOpt.get();
+
+        // Check 2: Password validation
+        if(room.getHashedPassword() != null && !room.getHashedPassword().isEmpty()){
+            String hashedInput = Integer.toHexString(rawPassword.hashCode());
+            if(!room.getHashedPassword().equals(hashedInput)){
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false,
+                        "message", "Incorrect password."
+                ));
+            }
+        }
+
+        // Check 3: Max Member Limit (Among Us style limit)
+        if(room.getActiveMembers() >= room.getMaxMembers()){
+            return ResponseEntity.status(403).body(Map.of(
+                    "success", false,
+                    "message", "Room is full! Max " + room.getMaxMembers() + " members allowed."
+            ));
+        }
+        // Sab checks pass ho gaye! Entry ticket issue karo.
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "roomName", room.getRoomName(),
+                "message", "Joined successfully"
+        ));
+
     }
 }

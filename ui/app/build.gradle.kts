@@ -81,6 +81,11 @@ dependencies {
     // Navigation ke liye
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
+    // Lottie animation
+    implementation("com.airbnb.android:lottie-compose:6.3.0")
+    // OkHttp json parse karne ke liye Gson (agar pehle se nahi hai)
+    implementation("com.google.code.gson:gson:2.10.1")
+
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests

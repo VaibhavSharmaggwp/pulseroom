@@ -16,8 +16,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        // Client is URL par connect karega: ws://localhost:8080/ws
-        registry.addHandler(roomWebSocketHandler, "/ws")
+        // Client is URL par connect karega: ws://localhost:8080/ws ya ws://localhost:8080/ws/rooms
+        registry.addHandler(roomWebSocketHandler, "/ws", "/ws/rooms")
                 .setAllowedOrigins("*"); // Development ke liye sabhi origins allow kar rahe hain
     }
 }

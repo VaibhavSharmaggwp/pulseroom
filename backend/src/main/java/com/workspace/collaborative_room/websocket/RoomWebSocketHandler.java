@@ -1,7 +1,9 @@
 package com.workspace.collaborative_room.websocket;
 
+import com.workspace.collaborative_room.entity.RoomMetadataEntity;
 import com.workspace.collaborative_room.kafka.KafkaEventProducer;
 import com.workspace.collaborative_room.model.RoomEvent;
+import com.workspace.collaborative_room.repository.RoomMetadataRepository;
 import com.workspace.collaborative_room.service.NoteService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -11,6 +13,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -23,23 +26,50 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final StringRedisTemplate redisTemplate;
     private final ConcurrentHashMap<String, String> sessionToClientMap = new ConcurrentHashMap<>();
-
     private final NoteService noteService;
+    private final RoomMetadataRepository roomRepository; // Database mei count update krne ke liye
+    // Yeh Map track karega ki kaunsa Session ID kis Room ID mein gaya hai
+    // e.g., ["session_98xyz" -> "XY9A"]
 
-    public RoomWebSocketHandler(StringRedisTemplate redisTemplate, KafkaEventProducer kafkaProducer, NoteService noteService) {
+    private final ConcurrentHashMap<String, String> sessionToRoomMap = new ConcurrentHashMap<>();
+
+
+    public RoomWebSocketHandler(StringRedisTemplate redisTemplate, KafkaEventProducer kafkaProducer, NoteService noteService, RoomMetadataRepository roomRepository) {
         this.redisTemplate = redisTemplate;
         this.kafkaProducer = kafkaProducer;
         this.noteService = noteService;
+        this.roomRepository = roomRepository;
     }
 
     // Room ID -> us room mein connected sabhi users ke WebSockets ka Set
     private final ConcurrentHashMap<String, Set<WebSocketSession>> roomSessions = new ConcurrentHashMap<>();
 
-    // Session ID -> Room ID mapping (disconnect handle karne ke liye)
-    private final ConcurrentHashMap<String, String> sessionToRoomMap = new ConcurrentHashMap<>();
-
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+
+        // 1. URL se roomId nikalo (Android ne query param bheja hoga)
+        String query = session.getUri().getQuery();
+        String roomId = null;
+
+        if(query!= null && query.contains("roomId=")){
+            roomId = query.split("roomId=")[1].split("&")[0];
+        }
+
+        if(roomId != null){
+            // 2. Map mein record save karo
+            sessionToRoomMap.put(session.getId(), roomId);
+
+            // 3. Database mein activeMembers count badao
+            Optional<RoomMetadataEntity> roomOpt = roomRepository.findById(roomId);
+            if(roomOpt.isPresent()){
+                RoomMetadataEntity room = roomOpt.get();
+                // Count +1
+                room.setActiveMembers(room.getActiveMembers() + 1);
+                roomRepository.save(room);
+                System.out.println("User connected to room " + roomId + ". Active members: " + room.getActiveMembers());
+            }
+
+        }
         System.out.println("Naya connection open hua: " + session.getId());
     }
 
@@ -150,17 +180,34 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+
+        // 1. Pata lagao ki disconnect hone wala session kis room ka tha
         String roomId = sessionToRoomMap.remove(session.getId());
         String clientId = sessionToClientMap.remove(session.getId()); // Pata lagao kaunsa user gaya
 
-        if (roomId != null && clientId != null) {
+        if (roomId != null) {
+            // 2. Database mein activeMembers count kam karo (make sure negative na jaye)
+            Optional<RoomMetadataEntity> roomOpt = roomRepository.findById(roomId);
+            if (roomOpt.isPresent()) {
+                RoomMetadataEntity room = roomOpt.get();
+                int currentMembers = room.getActiveMembers();
+                if (currentMembers > 0) {
+                    room.setActiveMembers(currentMembers - 1);
+                    roomRepository.save(room);
+                    System.out.println("User disconnected from room " + roomId + ". Active members: " + (currentMembers - 1));
+                }
+            }
+
+            // 3. In-memory sessions cleanup (Memory leak bachane ke liye)
             if (roomSessions.containsKey(roomId)) {
                 Set<WebSocketSession> sessions = roomSessions.get(roomId);
                 if (sessions != null) {
                     sessions.remove(session);
-                    System.out.println("Client " + session.getId() + " (" + clientId + ") room " + roomId + " se leave kar gaya.");
+                    if (clientId != null) {
+                        System.out.println("Client " + session.getId() + " (" + clientId + ") room " + roomId + " se leave kar gaya.");
+                    }
 
-                    // Memory leak bachane ke liye: Agar room khali ho gaya toh map se hata do
+                    // Agar room khali ho gaya toh map se hata do
                     if (sessions.isEmpty()) {
                         roomSessions.remove(roomId);
                         System.out.println("Room " + roomId + " empty ho gaya aur memory se clear kar diya.");
@@ -168,16 +215,18 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            // Presence Event: USER_LEFT Broadcast karo
-            RoomEvent leftEvent = new RoomEvent();
-            leftEvent.setEventId(java.util.UUID.randomUUID().toString());
-            leftEvent.setType("USER_LEFT");
-            leftEvent.setRoomId(roomId);
-            leftEvent.setClientId(clientId);
-            leftEvent.setServerSeq(redisTemplate.opsForValue().increment("room_seq:" + roomId));
+            // 4. Presence Event: USER_LEFT Broadcast karo
+            if (clientId != null) {
+                RoomEvent leftEvent = new RoomEvent();
+                leftEvent.setEventId(java.util.UUID.randomUUID().toString());
+                leftEvent.setType("USER_LEFT");
+                leftEvent.setRoomId(roomId);
+                leftEvent.setClientId(clientId);
+                leftEvent.setServerSeq(redisTemplate.opsForValue().increment("room_seq:" + roomId));
 
-            System.out.println(clientId + " ka connection toot gaya. USER_LEFT broadcast kar rahe hain.");
-            redisTemplate.convertAndSend("room-events", objectMapper.writeValueAsString(leftEvent));
+                System.out.println(clientId + " ka connection toot gaya. USER_LEFT broadcast kar rahe hain.");
+                redisTemplate.convertAndSend("room-events", objectMapper.writeValueAsString(leftEvent));
+            }
         }
     }
 

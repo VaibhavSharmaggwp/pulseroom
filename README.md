@@ -35,9 +35,10 @@
 
 ## ✨ Key Features
 
-- **⚡ Real-Time Full-Duplex Synchronization**
-  - Persistent, low-latency WebSocket communication layer (`ws://localhost:8080/ws`).
-  - Bidirectional event broadcasting supporting concurrent room members.
+- **⚡ Real-Time Full-Duplex Synchronization & Presence Tracking**
+  - Persistent, low-latency WebSocket communication layer (`ws://localhost:8080/ws?roomId=<id>`).
+  - Dynamic session binding with automatic `activeMembers` capacity accounting in PostgreSQL on connection connect & disconnect.
+  - Bidirectional event broadcasting and real-time `USER_JOINED` / `USER_LEFT` presence announcements via Redis Pub/Sub.
 
 - **📝 Concurrent Document Collaboration**
   - Live synchronized document state across all connected participants.

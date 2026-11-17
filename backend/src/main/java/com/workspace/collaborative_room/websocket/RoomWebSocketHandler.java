@@ -67,6 +67,9 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
                 room.setActiveMembers(room.getActiveMembers() + 1);
                 roomRepository.save(room);
                 System.out.println("User connected to room " + roomId + ". Active members: " + room.getActiveMembers());
+
+                // NAYI LINE: Baaki logo ko batao ki ek aur banda aa gaya
+                broadcastMemberCount(roomId, room.getActiveMembers());
             }
 
         }
@@ -195,6 +198,9 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
                     room.setActiveMembers(currentMembers - 1);
                     roomRepository.save(room);
                     System.out.println("User disconnected from room " + roomId + ". Active members: " + (currentMembers - 1));
+
+                    // NAYI LINE: Baaki logo ko batao ki koi chhod kar chala gaya
+                    broadcastMemberCount(roomId, currentMembers - 1);
                 }
             }
 
@@ -245,6 +251,26 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
                     }
                 }
             }
+        }
+    }
+
+    // Helper method: Naya event banakar Redis pe dalne ke liye
+    private void broadcastMemberCount(String roomId, int newCount) {
+        try {
+            RoomEvent countEvent = new RoomEvent();
+            countEvent.setEventId(java.util.UUID.randomUUID().toString());
+            countEvent.setType("MEMBER_COUNT_UPDATED");
+            countEvent.setRoomId(roomId);
+            countEvent.setClientId("server_system");  // Yeh client se nahi, server se aa raha hai
+            countEvent.setServerSeq(redisTemplate.opsForValue().increment("room_seq:" + roomId));
+            countEvent.setTimestamp(System.currentTimeMillis());
+            countEvent.setPayload(java.util.Map.of("count", newCount));
+
+            String jsonEvent = objectMapper.writeValueAsString(countEvent);
+            redisTemplate.convertAndSend("room-events", jsonEvent);
+            System.out.println("Broadcasted MEMBER_COUNT_UPDATED for room " + roomId + ": " + newCount);
+        } catch (Exception e) {
+            System.out.println("Broadcast fail hua: " + e.getMessage());
         }
     }
 }

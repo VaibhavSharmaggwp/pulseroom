@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.workspace.pulseroom.ui.main.model.ParticipantModel
 import com.workspace.pulseroom.ui.main.model.RoomEvent
 import com.workspace.pulseroom.ui.main.model.RoomInfo
 import com.workspace.pulseroom.ui.main.model.StickyNoteModel
@@ -28,6 +29,19 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class RoomsViewModel : ViewModel() {
+
+    private val _participantsList = MutableStateFlow(
+        listOf(
+            ParticipantModel("user_1", "Vaibhav (You)", "Admin"),
+            ParticipantModel("user_2", "Gaurika", "Member"),
+            ParticipantModel("user_3", "Harsh", "Member")
+        )
+    )
+
+    val participantsList: StateFlow<List<ParticipantModel>> = _participantsList.asStateFlow()
+
+    // Admin check logic
+    val currentUserRole = "Admin"   // Yeh baad mein token/login session se aayega
 
     var isLoading by mutableStateOf(false)
         private set

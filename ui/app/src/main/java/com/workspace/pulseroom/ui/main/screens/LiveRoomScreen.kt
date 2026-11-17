@@ -21,6 +21,7 @@ import com.workspace.pulseroom.theme.PulseRoomTheme
 import com.workspace.pulseroom.ui.main.components.BottomActionBar
 import com.workspace.pulseroom.ui.main.components.DraggableStickyNote
 import com.workspace.pulseroom.ui.main.components.FancyToast
+import com.workspace.pulseroom.ui.main.components.ParticipantsBottomSheet
 import com.workspace.pulseroom.ui.main.components.RoomHeader
 import com.workspace.pulseroom.ui.main.components.WorkspaceGridBackground
 import com.workspace.pulseroom.ui.main.model.StickyNoteModel
@@ -69,6 +70,10 @@ fun LiveRoomScreen(
         }
     }
 
+    // Nayi UI states ViewModel se fetch karo
+    val participantsList by viewModel.participantsList.collectAsState()
+    var showParticipantsSheet by remember { mutableStateOf(false)} // Bottom sheet toggle
+
     // Naye notes ke liye pastel peach color
     val peachNoteColor = Color(0xFFFFDAB9)
 
@@ -103,11 +108,11 @@ fun LiveRoomScreen(
         // ==========================================
         Box(modifier = Modifier.align(Alignment.TopCenter)) {
             RoomHeader(
-                // ViewModel se dynamically room ID nikalo
                 roomTitle = "Room Code: ${viewModel.currentRoomId}",
-                participantCount = participantCount, // DYNAMIC VARIABLE FROM VIEWMODEL
+                participantCount = participantCount,
                 timerText = "Live",
-                onBackClick = onBackClick
+                onBackClick = onBackClick,
+                onParticipantsClick = { showParticipantsSheet = true }
             )
         }
 
@@ -157,6 +162,27 @@ fun LiveRoomScreen(
                 },
                 onRaiseHandClick = {
                     println("Raise hand trigger hua!")
+                }
+            )
+        }
+
+        // ==========================================
+        // LAYER 4: Bottom Sheet Logic
+        // ==========================================
+        if (showParticipantsSheet) {
+            ParticipantsBottomSheet(
+                participants = participantsList,
+                currentUserIsAdmin = viewModel.currentUserRole == "Admin",
+                onDismiss = { showParticipantsSheet = false },
+                onMuteClick = { userId ->
+                    // Action backend ko bhejo
+                    println("Muting user: $userId")
+                    // viewModel.sendAdminAction("MUTE_USER", userId)
+                },
+                onKickClick = { userId ->
+                    // Action backend ko bhejo
+                    println("Kicking user: $userId")
+                    // viewModel.sendAdminAction("KICK_USER", userId)
                 }
             )
         }

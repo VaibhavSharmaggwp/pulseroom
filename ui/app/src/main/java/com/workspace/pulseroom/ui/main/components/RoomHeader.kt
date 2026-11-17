@@ -1,6 +1,10 @@
 package com.workspace.pulseroom.ui.main.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,7 +33,8 @@ fun RoomHeader(
     roomTitle: String,
     participantCount: Int,
     timerText: String,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onParticipantsClick: () -> Unit = {}
 ) {
     val textEspresso = Color(0xFF101917) // Headings & body
     val textMuted = Color(0xFF78716C) // Meta text
@@ -62,7 +67,13 @@ fun RoomHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 4.dp)
             ) {
-                LiveBadge(count = participantCount) // Reusing our component from earlier
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onParticipantsClick() }
+                ) {
+                    LiveBadge(count = participantCount) // Reusing our component from earlier
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = timerText,

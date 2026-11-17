@@ -62,6 +62,10 @@ class RoomsViewModel : ViewModel() {
     private val _lastRecievedEvent = MutableStateFlow<RoomEvent?>(null)
     val lastRecievedEvent: StateFlow<RoomEvent?> = _lastRecievedEvent.asStateFlow()
 
+    // NAYA STATE: Participant count track karne ke liye (default 1 hoga kyunki user khud to hai hi)
+    private val _participantCount = MutableStateFlow(1)
+    val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
+
     // OKHTTP engine for WebSocket
     private var webSocketClient: WorkspaceWebSocketClient? = null
 
@@ -101,7 +105,7 @@ class RoomsViewModel : ViewModel() {
                 _lastRecievedEvent.value = incomingEvent
 
                 // Backend se aane wale naye note ya update ko process karo
-                handleIncomingNoteEvent(incomingEvent)
+                handleIncomingEvent(incomingEvent)
             }
         )
         webSocketClient?.connect(roomCode)
@@ -113,6 +117,24 @@ class RoomsViewModel : ViewModel() {
         webSocketClient?.disconnect()
         webSocketClient = null
         _notes.value = emptyList()
+        _participantCount.value = 1
+    }
+
+    fun handleIncomingEvent(event: RoomEvent) {
+        val payload = event.payload ?: return
+
+        when (event.type) {
+            "MEMBER_COUNT_UPDATED" -> {
+                // Backend se aaya naya count state mein daal do
+                val newCount = (payload["count"] as? Number)?.toInt() ?: 1
+                _participantCount.value = newCount
+                println("ViewModel: Participant count updated -> $newCount")
+            }
+
+            else -> {
+                handleIncomingNoteEvent(event)
+            }
+        }
     }
 
     /**

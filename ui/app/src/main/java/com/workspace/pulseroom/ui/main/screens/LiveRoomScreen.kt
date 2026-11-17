@@ -51,7 +51,7 @@ fun LiveRoomScreen(
     // Dynamic title & participant count
     val activeRoom = roomsList.find { it.id.equals(roomId, ignoreCase = true) }
     val displayTitle = activeRoom?.name ?: "Room #$roomId"
-    val participantCount = activeRoom?.participants ?: 1
+    val participantCount by viewModel.participantCount.collectAsState()
 
     // Fancy Toast state
     var toastMessage by remember { mutableStateOf<String?>(null) }
@@ -105,7 +105,7 @@ fun LiveRoomScreen(
             RoomHeader(
                 // ViewModel se dynamically room ID nikalo
                 roomTitle = "Room Code: ${viewModel.currentRoomId}",
-                participantCount = 1, // Baad mein isko bhi dynamic karenge
+                participantCount = participantCount, // DYNAMIC VARIABLE FROM VIEWMODEL
                 timerText = "Live",
                 onBackClick = onBackClick
             )

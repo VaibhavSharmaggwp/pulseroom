@@ -59,4 +59,6 @@ object NetworkConfig {
 
     val wsUrl: String
         get() = "ws://$serverHost:$PORT/ws"
+
+    fun getWsUrl(roomId: String): String = "$wsUrl?roomId=$roomId"
 }

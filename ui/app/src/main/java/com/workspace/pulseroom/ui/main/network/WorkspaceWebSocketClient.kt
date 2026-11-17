@@ -22,8 +22,13 @@ class WorkspaceWebSocketClient(
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
 
+    fun connectToRoom(roomId: String) {
+        connect(roomId)
+    }
+
     fun connect(roomCode: String){
-        val wsUrl = NetworkConfig.wsUrl
+        // Dynamic URL with roomId query parameter (e.g., ws://10.0.2.2:8080/ws?roomId=XY9A)
+        val wsUrl = NetworkConfig.getWsUrl(roomCode)
         Log.d("WebSocket", "Connecting to $wsUrl for room: $roomCode (host: ${NetworkConfig.serverHost})")
 
         val request = Request.Builder()

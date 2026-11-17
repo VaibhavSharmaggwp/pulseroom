@@ -58,6 +58,8 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         if(roomId != null){
             // 2. Map mein record save karo
             sessionToRoomMap.put(session.getId(), roomId);
+            roomSessions.putIfAbsent(roomId, ConcurrentHashMap.newKeySet());
+            roomSessions.get(roomId).add(session);
 
             // 3. Database mein activeMembers count badao
             Optional<RoomMetadataEntity> roomOpt = roomRepository.findById(roomId);

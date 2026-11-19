@@ -38,7 +38,11 @@
 - **⚡ Real-Time Full-Duplex Synchronization & Presence Tracking**
   - Persistent, low-latency WebSocket communication layer (`ws://localhost:8080/ws?roomId=<id>`).
   - Dynamic session binding with automatic `activeMembers` capacity accounting in PostgreSQL on connection connect & disconnect.
-  - Bidirectional event broadcasting and real-time `USER_JOINED` / `USER_LEFT` presence announcements via Redis Pub/Sub.
+  - Bidirectional event broadcasting and real-time `USER_JOINED`, `USER_LEFT`, and `MEMBER_COUNT_UPDATED` presence announcements via Redis Pub/Sub.
+
+- **👥 Live Participant Roster & Room Management**
+  - Interactive participants bottom sheet displaying real-time room members and active capacity.
+  - Role-based moderation controls allowing room hosts (Admins) to manage, mute, and kick participants.
 
 - **📝 Concurrent Document Collaboration**
   - Live synchronized document state across all connected participants.
@@ -131,6 +135,7 @@ All WebSocket payloads adhere to a unified JSON event envelope:
 | :--- | :--- | :--- |
 | `ROOM_STATE` | Server -> Client | Authoritative initial room snapshot and version on join |
 | `USER_JOINED` / `USER_LEFT` | Server -> Client | Real-time presence notifications |
+| `MEMBER_COUNT_UPDATED` | Server -> Client | Dynamic active participant count broadcasts triggered by connection lifecycle |
 | `TYPING_START` / `TYPING_STOP` | Client -> Server -> Client | Live typing indicators and user activity signals |
 | `TEXT_UPDATE` | Client -> Server -> Client | Collaborative notes delta updates and patch synchronization |
 | `DRAW_START` / `DRAW_POINTS` / `DRAW_END` | Client -> Server -> Client | High-frequency vector whiteboard strokes |
